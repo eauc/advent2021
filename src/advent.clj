@@ -68,8 +68,6 @@
 
 (def day03-file (io/resource "day03.txt"))
 
-(map-indexed (fn [i p] [i p]) (first day03-data))
-
 (def day03-data
   (->> (line-seq (io/reader day03-file))))
 
@@ -131,3 +129,83 @@
     {:o2-generator o2-generator
      :co2-scrubber co2-scrubber
      :life-support (* o2-generator co2-scrubber)}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 04
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day04-file (io/resource "day04.txt"))
+
+(def day04-data
+  (->> (line-seq (io/reader day04-file))))
+
+(def bingo-numbers
+  (->> (clojure.string/split (first day04-data) #",")
+       (map #(Integer/parseInt %))))
+
+(defn txt->line [line]
+  (->> (-> line clojure.string/trim (clojure.string/split #"\s+"))
+       (mapv #(Integer/parseInt %))))
+
+(defn txt->board [lines]
+  (let [rows (mapv txt->line lines)]
+    {:rows rows
+     :cols (map-indexed (fn [i _] (mapv #(nth % i) rows)) rows)}))
+
+(def bingo-boards
+  (->> day04-data
+       (drop 2)
+       (partition 5 6)
+       (map txt->board)))
+
+
+(defn play-number-on-grid [grid n]
+  (mapv #(remove #{n} %) grid))
+
+(defn play-number-on-board [{:keys [rows cols]} n]
+  {:rows (play-number-on-grid rows n)
+   :cols (play-number-on-grid cols n)})
+
+(defn grid-winning? [grid]
+  (some empty? grid))
+
+(defn board-winning? [{:keys [rows cols]}]
+  (or (grid-winning? rows)
+      (grid-winning? cols)))
+
+(comment
+  (-> (first bingo-boards)
+      (play-number-on-board 79)
+      (play-number-on-board 81)
+      (play-number-on-board 40)
+      ;; (play-number-on-board 28)
+      (play-number-on-board 77)
+      board-winning?)
+  )
+
+(defn board-score [{:keys [rows]}]
+  (reduce #(+ %1 (reduce + 0 %2)) 0 rows))
+
+(defn find-first-winning-board [start-boards start-numbers]
+  (loop [boards start-boards
+         numbers start-numbers]
+    (let [new-boards (mapv #(play-number-on-board % (first numbers)) boards)
+          winning-board (first (filter board-winning? new-boards))]
+      (if winning-board
+        [winning-board (first numbers)]
+        (recur new-boards (rest numbers))))))
+
+(let [[first-winning-board number] (find-first-winning-board bingo-boards bingo-numbers)]
+  (* number (board-score first-winning-board)))
+
+(defn last-first-winning-board [start-boards start-numbers]
+  (loop [boards start-boards
+         numbers start-numbers]
+    (let [new-boards (mapv #(play-number-on-board % (first numbers)) boards)
+          losing-boards (remove board-winning? new-boards)]
+      (if (empty? losing-boards)
+        [(first new-boards) (first numbers)]
+        (recur losing-boards (rest numbers))))))
+
+(let [[last-winning-board number] (last-first-winning-board bingo-boards bingo-numbers)]
+  (* number (board-score last-winning-board)))
