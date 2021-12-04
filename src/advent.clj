@@ -61,3 +61,73 @@
 
 (defn run [opts]
   (println "coucouc"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 03
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day03-file (io/resource "day03.txt"))
+
+(map-indexed (fn [i p] [i p]) (first day03-data))
+
+(def day03-data
+  (->> (line-seq (io/reader day03-file))))
+
+(let [gamma (->> (first day03-data)
+                 (map-indexed (fn [i _] (mapv #(str (get % i)) day03-data)))
+                 (map frequencies)
+                 (map (fn [{ones "1" zeros "0"}] (if (> ones zeros) 1 0)))
+                 reverse
+                 (map-indexed (fn [p bit] [bit (int (Math/pow 2 p))]))
+                 (filter #(= 1 (first %)))
+                 (map second)
+                 (reduce +))
+      epsilon (- (dec (int (Math/pow 2 (count (first day03-data))))) gamma)
+      ]
+  {:gamma gamma
+   :epsilon epsilon
+   :power-consumption (* gamma epsilon)})
+
+(defn get-rating [all-data pick-matching-bit]
+  (-> (loop [data all-data
+             n 0]
+        (let [matching-bit (->> data
+                                (map #(get % n))
+                                (frequencies)
+                                (sort-by (juxt second first))
+                                pick-matching-bit
+                                first)
+              valid-data (filter #(= matching-bit (get % n)) data)]
+          (println valid-data)
+          (if (= 1 (count valid-data))
+            (first valid-data)
+            (recur valid-data (inc n)))))
+      (Integer/parseInt 2)))
+
+(def test-data
+  ["00100"
+   "11110"
+   "10110"
+   "10111"
+   "10101"
+   "01111"
+   "00111"
+   "11100"
+   "10000"
+   "11001"
+   "00010"
+   "01010"])
+
+(def test-ratings
+  (let [o2-generator (get-rating test-data last)
+        co2-scrubber (get-rating test-data first)]
+    {:o2-generator o2-generator
+     :co2-scrubber co2-scrubber
+     :life-support (* o2-generator co2-scrubber)}))
+
+(def ratings
+  (let [o2-generator (get-rating day03-data last)
+        co2-scrubber (get-rating day03-data first)]
+    {:o2-generator o2-generator
+     :co2-scrubber co2-scrubber
+     :life-support (* o2-generator co2-scrubber)}))
