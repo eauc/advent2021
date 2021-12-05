@@ -20,11 +20,13 @@
        count))
 
 (count-increment day01-data)
+;; => 1532
 
 (->> day01-data
      (partition 3 1)
      (map #(apply + %))
      count-increment)
+;; => 1571
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DAY 02
@@ -45,6 +47,7 @@
         x forward
         depth (- down up)]
     (* x depth)))
+;; => 1714680
 
 (defn move [state [cmd n]]
   (let [{:keys [x depth aim]} state]
@@ -56,11 +59,7 @@
 (def answer-02
   (let [{:keys [x depth]} (reduce move {:x 0 :depth 0 :aim 0} day02-data)]
     (* x depth)))
-
 ;; => 1963088820
-
-(defn run [opts]
-  (println "coucouc"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DAY 03
@@ -85,6 +84,7 @@
   {:gamma gamma
    :epsilon epsilon
    :power-consumption (* gamma epsilon)})
+;; => {:gamma 3516, :epsilon 579, :power-consumption 2035764}
 
 (defn get-rating [all-data pick-matching-bit]
   (-> (loop [data all-data
@@ -122,6 +122,7 @@
     {:o2-generator o2-generator
      :co2-scrubber co2-scrubber
      :life-support (* o2-generator co2-scrubber)}))
+;; => {:o2-generator 23, :co2-scrubber 10, :life-support 230}
 
 (def ratings
   (let [o2-generator (get-rating day03-data last)
@@ -129,6 +130,7 @@
     {:o2-generator o2-generator
      :co2-scrubber co2-scrubber
      :life-support (* o2-generator co2-scrubber)}))
+;; => {:o2-generator 3311, :co2-scrubber 851, :life-support 2817661}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DAY 04
@@ -178,7 +180,7 @@
       (play-number-on-board 79)
       (play-number-on-board 81)
       (play-number-on-board 40)
-      ;; (play-number-on-board 28)
+      (play-number-on-board 28)
       (play-number-on-board 77)
       board-winning?)
   )
@@ -197,6 +199,7 @@
 
 (let [[first-winning-board number] (find-first-winning-board bingo-boards bingo-numbers)]
   (* number (board-score first-winning-board)))
+;; => 33462
 
 (defn last-first-winning-board [start-boards start-numbers]
   (loop [boards start-boards
@@ -209,3 +212,61 @@
 
 (let [[last-winning-board number] (last-first-winning-board bingo-boards bingo-numbers)]
   (* number (board-score last-winning-board)))
+;; => 30070
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 05
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day05-file (io/resource "day05.txt"))
+
+(def day05-data
+  (->> (line-seq (io/reader day05-file))
+       (map #(clojure.string/split % #"(,| -> )"))
+       (map (fn [strs] (map #(Integer/parseInt %) strs)))))
+
+(defn line-positions [[x1 y1 x2 y2]]
+  (let [rng-x (if (>= x1 x2) (range x1 (dec x2) -1) (range x1 (inc x2)))
+        rng-y (if (>= y1 y2) (range y1 (dec y2) -1) (range y1 (inc y2)))]
+    (cond
+      (= x1 x2) (set (map #(vector x1 %) rng-y))
+      (= y1 y2) (set (map #(vector % y1) rng-x))
+      :else (set (map vector rng-x rng-y)))))
+
+(defn horizontal? [[x1 y1 x2 y2]]
+  (= y1 y2))
+
+(defn vertical? [[x1 y1 x2 y2]]
+  (= x1 x2))
+
+(defn intersections-count [lines]
+  (->> lines
+       (mapcat line-positions)
+       frequencies
+       (filter #(< 1 (second %)))
+       count))
+
+(comment
+  (->> [[0,9,5,9]
+        [8,0,0,8]
+        [9,4,3,4]
+        [2,2,2,1]
+        [7,0,7,4]
+        [6,4,2,0]
+        [0,9,2,9]
+        [3,4,1,4]
+        [0,0,8,8]
+        [5,5,8,2]]
+       ;; (filter #(or (horizontal? %) (vertical? %)))
+       intersections-count)
+  )
+
+(->> day05-data
+     (filter #(or (horizontal? %) (vertical? %)))
+     intersections-count)
+;; => 4745
+
+(->> day05-data
+     intersections-count)
+;; => 18442
