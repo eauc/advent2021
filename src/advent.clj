@@ -152,7 +152,7 @@
 (defn txt->board [lines]
   (let [rows (mapv txt->line lines)]
     {:rows rows
-     :cols (map-indexed (fn [i _] (mapv #(nth % i) rows)) rows)}))
+     :cols (apply map vector rows)}))
 
 (def bingo-boards
   (->> day04-data
@@ -270,3 +270,53 @@
 (->> day05-data
      intersections-count)
 ;; => 18442
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 06
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day06-file (io/resource "day06.txt"))
+
+(def day06-data
+  (->> (line-seq (io/reader day06-file))
+       first
+       (#(clojure.string/split % #","))
+       (map #(Integer/parseInt %))))
+
+(def test-data
+  [3,4,3,1,2])
+
+(defn one-day-pass [fishes]
+  (let [new-fishes (map (fn [x _] x) (repeat 8) (filter #{0} fishes))]
+    (concat (map #(if (= 0 %) 6 (dec %)) fishes) new-fishes)))
+
+(defn x-days-pass [fishes x]
+  (reduce (fn [fs _] (one-day-pass fs)) fishes (range x)))
+
+(count (x-days-pass test-data 80))
+;; => 5934
+
+(count (x-days-pass day06-data 80))
+;; => 352151
+
+(def spawned
+  (memoize
+   (fn [start total-days]
+     (let [spawn-days (range (+ start 7) (inc total-days) 7)]
+       (+ (count spawn-days)
+          (reduce + (map #(spawned (+ % 2) total-days) spawn-days)))))))
+
+(spawned (- (inc 3) 7) 18)
+
+(defn n-fishes [start-fishes total-days]
+  (+ (count start-fishes)
+     (reduce + (map #(spawned (- (inc %) 7) total-days) start-fishes))))
+
+(n-fishes test-data 18)
+;; => 26
+(n-fishes test-data 80)
+;; => 5934
+(n-fishes day06-data 80)
+;; => 352151
+(n-fishes day06-data 256)
+;; => 1601616884019
