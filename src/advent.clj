@@ -2,6 +2,9 @@
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]))
 
+(defn sum [xs]
+  (reduce + 0 xs))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DAY 01
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -78,7 +81,7 @@
                  (map-indexed (fn [p bit] [bit (int (Math/pow 2 p))]))
                  (filter #(= 1 (first %)))
                  (map second)
-                 (reduce +))
+                 sum)
       epsilon (- (dec (int (Math/pow 2 (count (first day03-data))))) gamma)
       ]
   {:gamma gamma
@@ -186,7 +189,7 @@
   )
 
 (defn board-score [{:keys [rows]}]
-  (reduce #(+ %1 (reduce + 0 %2)) 0 rows))
+  (reduce #(+ %1 (sum %2)) 0 rows))
 
 (defn find-first-winning-board [start-boards start-numbers]
   (loop [boards start-boards
@@ -304,13 +307,13 @@
    (fn [start total-days]
      (let [spawn-days (range (+ start 7) (inc total-days) 7)]
        (+ (count spawn-days)
-          (reduce + (map #(spawned (+ % 2) total-days) spawn-days)))))))
+          (sum (map #(spawned (+ % 2) total-days) spawn-days)))))))
 
 (spawned (- (inc 3) 7) 18)
 
 (defn n-fishes [start-fishes total-days]
   (+ (count start-fishes)
-     (reduce + (map #(spawned (- (inc %) 7) total-days) start-fishes))))
+     (sum (map #(spawned (- (inc %) 7) total-days) start-fishes))))
 
 (n-fishes test-data 18)
 ;; => 26
@@ -320,3 +323,37 @@
 ;; => 352151
 (n-fishes day06-data 256)
 ;; => 1601616884019
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 07
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day07-file (io/resource "day07.txt"))
+
+(def day07-data
+  (map #(Integer/parseInt %)
+       (clojure.string/split (first (line-seq (io/reader day07-file))) #",")))
+
+(defn move-fuel-cost-simple [dist]
+  dist)
+
+(defn pos-fuel-cost [pos move-fuel-cost]
+  (sum (map #(move-fuel-cost (Math/abs (- % pos))) day07-data)))
+
+(apply min (map #(pos-fuel-cost % move-fuel-cost-simple) day07-data))
+;; => 354129
+
+(def move-fuel-cost-real
+  (memoize
+   (fn [dist]
+     (/ (* dist (inc dist)) 2))))
+
+(def move-fuel-cost-real-bourrin
+  (memoize
+   (fn [dist]
+     (sum (range (inc dist))))))
+
+(apply min (map #(pos-fuel-cost % move-fuel-cost-real) day07-data))
+;; => 98905973
+(apply min (map #(pos-fuel-cost % move-fuel-cost-real-bourrin) day07-data))
+;; => 98905973
