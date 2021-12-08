@@ -357,3 +357,84 @@
 ;; => 98905973
 (apply min (map #(pos-fuel-cost % move-fuel-cost-real-bourrin) day07-data))
 ;; => 98905973
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 08
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day08-file (io/resource "day08.txt"))
+
+(def day08-data
+  (->> (line-seq (io/reader day08-file))
+       (map
+        (fn [l]
+          (let [[test output] (clojure.string/split l #" \| ")]
+            {:test (->> (clojure.string/split test #" ") (map set))
+             :output (clojure.string/split output #" ")})))))
+
+(defn uniq-digit [d]
+  (#{7 4 3 2} (count d)))
+
+(->> day08-data
+     (mapcat :output)
+     (filter uniq-digit)
+     count)
+;; => 543
+
+(def test-data
+  (->> ["be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe"
+       "edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec | fcgedb cgb dgebacf gc"
+       "fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg"
+       "fbegcd cbd adcefb dageb afcb bc aefdc ecdab fgdeca fcdbega | efabcd cedba gadfec cb"
+       "aecbfdg fbg gf bafeg dbefa fcge gcbea fcaegb dgceab fcbdga | gecf egdcabf bgf bfgea"
+       "fgeab ca afcebg bdacfeg cfaedg gcfdb baec bfadeg bafgc acf | gebdcfa ecba ca fadegcb"
+       "dbcfg fgd bdegcaf fgec aegbdf ecdfab fbedc dacgb gdcebf gf | cefg dcbef fcge gbcadfe"
+       "bdfegc cbegaf gecbf dfcage bdacg ed bedf ced adcbefg gebcd | ed bcgafe cdgba cbgef"
+       "egadfb cdbfeg cegd fecab cgb gbdefca cg fgcdab egfdb bfceg | gbdfcae bgc cg cgb"
+       "gcafb gcf dcaebfg ecagb gf abcdeg gaef cafbge fdbac fegbdc | fgae cfgab fg bagce"]
+       (map (fn [l]
+              (let [[test output] (clojure.string/split l #" \| ")]
+                {:test (->> (clojure.string/split test #" ") (map set))
+                 :output (clojure.string/split output #" ")})))))
+
+(defn common-segments [by-seg-count counts]
+  (apply clojure.set/intersection
+         (mapcat #(get by-seg-count %) counts)))
+
+(defn decode [test]
+  (let [by-seg-count (group-by count test)
+        f (common-segments by-seg-count [2 3 4 6 7])
+        a (common-segments by-seg-count [3 5 6 7])
+        d (common-segments by-seg-count [4 5 7])
+        b (clojure.set/difference
+           (common-segments by-seg-count [4 6 7])
+           f)
+        c (clojure.set/difference
+           (common-segments by-seg-count [2 3 4 7])
+           f)
+        g (clojure.set/difference
+           (common-segments by-seg-count [5 6 7])
+           a)
+        e (clojure.set/difference
+           #{\a \b \c \d \e \f \g}
+           (clojure.set/union a b c d f g))
+        ]
+    (into {}
+          [[(first a) \a] [(first b) \b] [(first c) \c] [(first d) \d]
+           [(first e) \e] [(first f) \f] [(first g) \g]])))
+
+(def seg->digit
+  {[\a \b \c \e \f \g] "0"
+   [\c \f] "1"
+   [\a \c \d \e \g] "2"
+   [\a \c \d \f \g] "3"
+   [\b \c \d \f] "4"
+   [\a \b \d \f \g] "5"
+   [\a \b \d \e \f \g] "6"
+   [\a \c \f] "7"
+   [\a \b \c \d \e \f \g] "8"
+   [\a \b \c \d \f \g] "9"})
+
+(let [code (decode (-> test-data first :test))
+      output (-> test-data first :output first)]
+  (sort (map code output)))
