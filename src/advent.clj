@@ -435,6 +435,186 @@
    [\a \b \c \d \e \f \g] "8"
    [\a \b \c \d \f \g] "9"})
 
-(let [code (decode (-> test-data first :test))
-      output (-> test-data first :output first)]
-  (sort (map code output)))
+(defn decode-output [output code]
+  (Integer/parseInt
+   (clojure.string/join
+    (map #(get seg->digit (sort (map code %))) output))))
+
+(defn decode-line [{:keys [test output]}]
+  (let [code (decode test)]
+    (decode-output output code)))
+
+(sum
+ (map decode-line test-data))
+;; => 61229
+
+(sum
+ (map decode-line day08-data))
+;; => 994266
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 09
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day09-file (io/resource "day09.txt"))
+
+(defn ->map [lines]
+  (->> lines
+       (map #(clojure.string/split % #""))
+       (map (fn [l] (map #(Integer/parseInt %) l)))))
+
+(def day09-data
+  (->map (line-seq (io/reader day09-file))))
+
+(def test-data
+  (->map
+   ["2199943210"
+    "3987894921"
+    "9856789892"
+    "8767896789"
+    "9899965678"]))
+
+(defn height [m [x y]]
+  (-> m (nth y) (nth x)))
+
+(defn size [m]
+  [(count (first m)) (count m)])
+
+(defn ->all-positions [m]
+  (let [[w h] (size m)]
+    (for [x (range w)
+          y (range h)]
+      [x y])))
+
+(def neighbours
+  (memoize
+   (fn [[x y] [w h]]
+     (cond-> (list)
+       (< 0 x) (conj [(dec x) y])
+       (< 0 y) (conj [x (dec y)])
+       (< x (dec w)) (conj [(inc x) y])
+       (< y (dec h)) (conj [x (inc y)])))))
+
+(neighbours [2 0] (size test-data))
+
+(defn ->local-minimums [m]
+  (let [s (size m)
+        positions (->all-positions m)]
+    (filter
+     (fn [p]
+       (let [ph (height m p)
+             ns (neighbours p s)]
+         (every? #(< ph (height m %)) ns)))
+     positions)))
+
+(defn risk-level [m p]
+  (inc (height m p)))
+
+(defn risk-assessment [m]
+  (->> (->local-minimums m)
+       (map #(risk-level m %))
+       sum))
+
+(risk-assessment test-data)
+(risk-assessment day09-data)
+;; => 502
+
+(defn map->string
+  ([m f]
+   (clojure.string/join
+    "\n"
+    (map-indexed
+     (fn [y row]
+       (clojure.string/join
+        (map-indexed
+         (fn [x ph]
+           (let [v (f [x y] ph)]
+             (if-not (nil? v) v \.)))
+         row)))
+     m)))
+  ([m]
+   (map->string m (fn [_ ph] ph))))
+
+(do
+  (println "===================")
+  (println
+   (map->string test-data)))
+
+(do
+  (println "===================")
+  (println
+   (map->string test-data (fn [_ ph] (when (= 9 ph) ph)))))
+
+(let [mins (set (->local-minimums test-data))]
+  (println "===================")
+  (println
+   (map->string test-data (fn [p ph] (when (mins p) ph)))))
+
+(do
+  (println "===================")
+  (println
+   (map->string day09-data)))
+
+(do
+  (println "===================")
+  (println
+   (map->string day09-data (fn [_ ph] (when (= 9 ph) ph)))))
+
+(let [mins (set (->local-minimums day09-data))]
+  (println "===================")
+  (println
+   (map->string day09-data (fn [p ph] (when (or (= 9 ph) (mins p)) ph)))))
+
+(defn up-hill-neighbours [m s p]
+  (let [ph (height m p)]
+    (filter
+     (fn [n]
+       (let [nh (height m n)]
+         (and (not= 9 nh) (>= nh ph))))
+     (neighbours p s))))
+
+(defn ->bassin [m p]
+  (let [s (size m)]
+    (loop [ps #{p}
+           result #{}]
+      (if (empty? ps)
+        result
+        (let [n (first ps)
+              up-hill-ns (up-hill-neighbours m s n)
+              new-result (conj result n)]
+          (recur
+           (clojure.set/difference
+            (apply conj ps up-hill-ns)
+            new-result)
+           new-result))))))
+
+(defn ->bassins [m]
+  (let [mins (->local-minimums m)]
+    (map #(conj (->bassin m %) %) mins)))
+
+(let [ps (apply clojure.set/union (->bassins test-data))]
+  (println "===================")
+  (println ps)
+  (println
+   (map->string test-data (fn [p ph] (when (ps p) ph)))))
+
+(let [ps (apply clojure.set/union (->bassins day09-data))]
+  (println "===================")
+  ;; (println ps)
+  (println
+   (map->string day09-data (fn [p ph] (when (ps p) ph)))))
+
+(->> (->bassins test-data)
+     (map count)
+     sort
+     reverse
+     (take 3)
+     (reduce * 1))
+;; => 1134
+
+(->> (->bassins day09-data)
+     (map count)
+     sort
+     reverse
+     (take 3)
+     (reduce * 1))
