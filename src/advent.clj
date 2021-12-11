@@ -618,3 +618,104 @@
      reverse
      (take 3)
      (reduce * 1))
+;; => 1330560
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 10
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day10-file (io/resource "day10.txt"))
+
+(defn ->program [lines]
+  (->> lines
+       (map #(clojure.string/split % #""))))
+
+(def day10-data
+  (->program (line-seq (io/reader day10-file))))
+
+(def test-data
+  (->program
+   ["[({(<(())[]>[[{[]{<()<>>"
+    "[(()[<>])]({[<{<<[]>>("
+    "{([(<{}[<>[]}>{[]{[(<()>"
+    "(((({<>}<{<{<>}{[]{[]{}"
+    "[[<[([]))<([[{}[[()]]]"
+    "[{[{({}]{}}([{[{{{}}([]"
+    "{<[[]]>}<{[{[{[]{()[[[]"
+    "[<(<(<(<{}))><([]([]()"
+    "<{([([[(<>()){}]>(<<{{"
+    "<{([{{}}[<[[[<>{}]]]>[]]"]))
+
+(def pairs
+  {"(" ")"
+   "[" "]"
+   "{" "}"
+   "<" ">"})
+
+(defn parse [line]
+  (loop [chars line
+         state (list)]
+    (if (empty? chars)
+      {:state state}
+      (let [ch (first chars)]
+        (if (#{"(" "[" "{" "<"} ch)
+          (recur (rest chars) (conj state ch))
+          (let [last-state (first state)]
+            (if (= ch (pairs last-state))
+              (recur (rest chars) (pop state))
+              {:syntax-error ch})))))))
+
+(def syntax-error-score
+  {")" 3
+   "]" 57
+   "}" 1197
+   ">" 25137})
+
+(defn total-syntax-error-score [lines]
+  (->> lines
+       (map parse)
+       (map :syntax-error)
+       (map syntax-error-score)
+       (filter identity)
+       sum))
+
+(total-syntax-error-score test-data)
+;; => 26397
+(total-syntax-error-score day10-data)
+;; => 215229
+
+(defn complete-sequence [state]
+  (map pairs state))
+
+(def complete-score
+  {")" 1
+   "]" 2
+   "}" 3
+   ">" 4})
+
+(defn complete-sequence-score [complete-sequence]
+  (reduce
+   (fn [score ch]
+     (+ (* 5 score) (complete-score ch)))
+   0
+   complete-sequence))
+
+(defn autocomplete-score [scores]
+  (let [n (count scores)
+        i (Math/floor (/ n 2))]
+    (println i)
+    (nth (sort scores) i)))
+
+(defn total-autocomplete-score [lines]
+  (->> lines
+       (map parse)
+       (remove :syntax-error)
+       (map :state)
+       (map complete-sequence)
+       (map complete-sequence-score)
+       auto-complete-score))
+
+(total-autocomplete-score test-data)
+;; => 288957
+(total-autocomplete-score day10-data)
+;; => 1105996483
