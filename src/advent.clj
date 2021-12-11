@@ -719,3 +719,155 @@
 ;; => 288957
 (total-autocomplete-score day10-data)
 ;; => 1105996483
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 11
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day11-file (io/resource "day11.txt"))
+
+(defn ->octopuses [lines]
+  (->> lines
+       (map #(clojure.string/split % #""))
+       (map (fn [l] (map #(Integer/parseInt %) l)))))
+
+(def day11-data
+  (->octopuses (line-seq (io/reader day11-file))))
+
+(def test-data
+  (->octopuses
+   ["5483143223"
+    "2745854711"
+    "5264556173"
+    "6141336146"
+    "6357385478"
+    "4167524645"
+    "2176841721"
+    "6882881134"
+    "4846848554"
+    "5283751526"]))
+
+(defn oct->string
+  ([m f]
+   (clojure.string/join
+    "\n"
+    (map-indexed
+     (fn [y l]
+       (clojure.string/join
+        (map-indexed
+         (fn [x e]
+           (let [v (f [x y] e)]
+             (if (nil? v) "." (if (and (integer? v) (< 9 v)) "#" v))))
+         l)))
+     m)))
+  ([m]
+   (oct->string m (fn [_ e] e))))
+
+(def adjacents
+  (memoize
+   (fn [[x y] [w h]]
+     (set
+      (cond-> (list)
+        (and (< 0 x)
+             (< 0 y)) (conj [(dec x) (dec y)])
+        (and (< x (dec w))
+             (< 0 y)) (conj [(inc x) (dec y)])
+        (and (< 0 x)
+             (< y (dec h))) (conj [(dec x) (inc y)])
+        (and (< x (dec w))
+             (< y (dec h))) (conj [(inc x) (inc y)])
+        (< 0 x) (conj [(dec x) y])
+        (< 0 y) (conj [x (dec y)])
+        (< x (dec w)) (conj [(inc x) y])
+        (< y (dec h)) (conj [x (inc y)]))))))
+
+(let [adjs (set (adjacents [3 3] (size test-data)))]
+  (println "========================")
+  (println adjs)
+  (println (oct->string test-data (fn [p _] (when (adjs p) "X")))))
+
+(defn increase-energy
+  ([o f]
+   (map-indexed
+    (fn [y l]
+      (map-indexed
+       (fn [x e]
+         (if (f [x y] e) (inc e) e))
+       l))
+    o))
+  ([o]
+   (increase-energy o (fn [_ _] true))))
+
+(defn flashing [o]
+  (set
+   (apply
+    clojure.set/union
+    (map-indexed
+     (fn [y l]
+       (filter
+        identity
+        (map-indexed
+         (fn [x e]
+           (when (< 9 e) [x y]))
+         l)))
+     o))))
+
+(defn flash [o']
+  (let [s (size o')]
+    (loop [o o'
+           fls #{}]
+      (let [new-fls (clojure.set/difference (flashing o) fls)
+            adjs (map #(adjacents % s) new-fls)
+            adjs-u (apply clojure.set/union adjs)
+            new-o (reduce (fn [mem as] (increase-energy mem (fn [p _] (as p)))) o adjs)]
+        ;; (println "========================")
+        ;; (println new-fls)
+        ;; (println (oct->string new-o (fn [p e] (cond
+        ;;                                         (new-fls p) "X"
+        ;;                                         (adjs-u p) e
+        ;;                                         :else nil))))
+        (if (empty? new-fls)
+          new-o
+          (recur new-o (clojure.set/union fls new-fls))))))))
+
+(defn reset [o]
+  (map (fn [l] (map #(if (< 9 %) 0 %) l)) o))
+
+(defn oct-step [{:keys [o n-flashes]}]
+  (let [new-o (-> o increase-energy flash)]
+    {:o (reset new-o)
+     :n-flashes (+ n-flashes (count (flashing new-o)))}))
+
+(defn run-oct [o n-steps]
+(reduce
+ (fn [mem _]
+   (oct-step mem))
+ {:o o :n-flashes 0}
+ (range n-steps)))
+
+(let [{:keys [o n-flashes]} (run-oct test-data 100)]
+  (println "========================")
+  (println n-flashes)
+  (println (oct->string o (fn [_ e] (if (= 0 e) "." e))))
+  n-flashes)
+;; => 1656
+
+(let [{:keys [o n-flashes]} (run-oct day11-data 100)]
+  (println "========================")
+  (println n-flashes)
+  (println (oct->string o (fn [_ e] (if (= 0 e) "." e))))
+  n-flashes)
+;; => 1749
+
+(defn first-sync [o']
+  (loop [o o'
+         n 1]
+    (let [new-o (-> o increase-energy flash reset)]
+      (if (every? (fn [l] (every? #(= 0 %) l)) new-o)
+        n
+        (recur new-o (inc n))))))
+
+(first-sync test-data)
+;; => 195
+(first-sync day11-data)
+;; => 285
