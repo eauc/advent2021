@@ -871,3 +871,175 @@
 ;; => 195
 (first-sync day11-data)
 ;; => 285
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 12
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day12-file (io/resource "day12.txt"))
+
+(defn ->caves-map [lines]
+  (let [pairs (map #(clojure.string/split % #"-" ) lines)
+        paths (concat pairs (map reverse pairs))]
+    (->> (group-by first paths)
+         (map (fn [[ k v ]] [k (set (map second v))]))
+         (into {}))))
+
+(def day12-data
+  (->caves-map
+   (line-seq (io/reader day12-file))))
+
+(def test-data-A
+  (->caves-map
+   ["start-A"
+    "start-b"
+    "A-c"
+    "A-b"
+    "b-d"
+    "A-end"
+    "b-end"]))
+
+(defn small-caves [caves-map]
+  (->> caves-map
+       keys
+       (filter #(= (clojure.string/lower-case %) %))
+       set)))
+
+(small-caves test-data-A)
+
+(defn forbidden?-one [small-caves previous-path]
+  (set (filter small-caves previous-path)))
+
+(defn paths-at
+  [current-path caves-map forbidden?]
+  (if (= "end" (last current-path))
+    [current-path]
+    (let [forbidden (forbidden? current-path)
+          current-dests (caves-map (last current-path))
+          possible-dests (clojure.set/difference current-dests forbidden)]
+      ;; (println "=" current-path forbidden current-dests possible-dests)
+      (if (empty? possible-dests)
+        []
+        (mapcat
+         #(paths-at (conj current-path %) caves-map forbidden?)
+         possible-dests)))))
+
+(paths-at ["start" "A"] test-data-A
+          (partial forbidden?-one (small-caves test-data-A)))
+;; => (["start" "A" "b" "A" "end"] ["start" "A" "b" "A" "c" "A" "end"] ["start" "A" "b" "end"] ["start" "A" "end"] ["start" "A" "c" "A" "b" "A" "end"] ["start" "A" "c" "A" "b" "end"] ["start" "A" "c" "A" "end"])
+(paths-at ["start" "A" "c"] test-data-A
+          (partial forbidden?-one (small-caves test-data-A)))
+;; => (["start" "A" "c" "A" "b" "A" "end"] ["start" "A" "c" "A" "b" "end"] ["start" "A" "c" "A" "end"])
+(paths-at ["start" "A" "c" "A"] test-data-A
+          (partial forbidden?-one (small-caves test-data-A)))
+;; => (["start" "A" "c" "A" "b" "A" "end"] ["start" "A" "c" "A" "b" "end"] ["start" "A" "c" "A" "end"])
+(paths-at ["start" "A" "c" "A" "b"] test-data-A
+          (partial forbidden?-one (small-caves test-data-A)))
+;; => (["start" "A" "c" "A" "b" "A" "end"] ["start" "A" "c" "A" "b" "end"])
+(paths-at ["start" "A" "c" "A" "b" "d"] test-data-A
+          (partial forbidden?-one (small-caves test-data-A)))
+;; => []
+
+(defn paths->string [paths]
+  (clojure.string/join
+   "\n"
+   (sort
+    (map #(clojure.string/join "," %)paths))))
+
+(defn paths-one [caves-map]
+  (paths-at ["start"] caves-map (partial forbidden?-one (small-caves caves-map))))
+
+(defn forbidden?-two [small-caves previous-path]
+  (let [previous-small-caves (filter small-caves previous-path)
+        two-small-caves? (->> previous-small-caves
+                              frequencies
+                              (filter #(= 2 (second %)))
+                              first)]
+    ;; (println "->>" previous-path two-small-caves?)
+    (if two-small-caves?
+      (set previous-small-caves)
+      #{"start"})))
+
+(defn paths-two [caves-map]
+  (paths-at ["start"] caves-map (partial forbidden?-two (small-caves caves-map))))
+
+(let [paths (paths-one test-data-A)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 10
+
+(def test-data-B
+  (->caves-map
+   ["dc-end"
+    "HN-start"
+    "start-kj"
+    "dc-start"
+    "dc-HN"
+    "LN-dc"
+    "HN-end"
+    "kj-sa"
+    "kj-HN"
+    "kj-dc"]))
+
+(let [paths (paths-one test-data-B)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 19
+
+(def test-data-C
+  (->caves-map
+   ["fs-end"
+    "he-DX"
+    "fs-he"
+    "start-DX"
+    "pj-DX"
+    "end-zg"
+    "zg-sl"
+    "zg-pj"
+    "pj-he"
+    "RW-he"
+    "fs-DX"
+    "pj-RW"
+    "zg-RW"
+    "start-pj"
+    "he-WI"
+    "zg-he"
+    "pj-fs"
+    "start-RW"]))
+
+(let [paths (paths-one test-data-C)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 226
+
+(let [paths (paths-one day12-data)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 4659
+
+(let [paths (paths-two test-data-A)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 36
+
+(let [paths (paths-two test-data-B)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 103
+
+(let [paths (paths-two test-data-C)]
+  (println "=============================")
+  (println (paths->string paths))
+  (count paths))
+;; => 3509
+
+(let [paths (paths-two day12-data)]
+  (println "=============================")
+  (count paths))
+;; => 148962
