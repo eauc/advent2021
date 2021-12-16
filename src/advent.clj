@@ -1171,3 +1171,105 @@
 (let [ps (->code day13-data)]
   (println "=======================")
   (println (positions->string ps)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 14
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day14-file (io/resource "day14.txt"))
+
+(def day14-data
+  (->polymer-instructions
+   (line-seq (io/reader day14-file))))
+
+(def test-data
+  (->polymer-instructions
+   ["NNCB"
+    ""
+    "CH -> B"
+    "HH -> N"
+    "CB -> H"
+    "NH -> C"
+    "HB -> C"
+    "HC -> B"
+    "HN -> C"
+    "NN -> C"
+    "BH -> H"
+    "NC -> B"
+    "NB -> B"
+    "BN -> B"
+    "BB -> N"
+    "BC -> B"
+    "CC -> N"
+    "CN -> C"]))
+
+(defn ->polymer-instructions [lines]
+  (let [template (first lines)
+        rules (->> lines
+                   (drop 2)
+                   (map #(clojure.string/split % #" -> "))
+                   (map (fn [[pair insertion]]
+                          [pair
+                           [(clojure.string/join [(first pair) insertion])
+                            (clojure.string/join [insertion (last pair)])]]))
+                   (into {}))]
+    {:template template
+     :rules rules}))
+
+(defn poly-inc-freqs [freqs rules]
+  (apply
+   merge-with
+   +
+   (map
+    (fn [[p c]]
+      (let [[p1 p2] (rules p)]
+        {p1 c p2 c}))
+    freqs)))
+
+(defn ->poly-freqs [{:keys [rules template]} n-cycles]
+  (let [freqs (frequencies
+               (map
+                #(clojure.string/join %)
+                (partition 2 1 template)))]
+    (->> (range n-cycles)
+         (reduce (fn [freqs _] (poly-inc-freqs freqs rules)) freqs)
+         (map (fn [[k v]] {(first k) v}))
+         (apply merge-with + {(last template) 1}))))
+
+
+(->poly-freqs test-data 1)
+;; => {\N 2, \C 2, \B 2, \H 1}
+;; => "NCNBCHB"
+(->poly-freqs test-data 2)
+;; => {\N 2, \B 6, \C 4, \H 1}
+;; => "NBCCNBBBCBHCB"
+(->poly-freqs test-data 3)
+;; => {\N 5, \B 11, \C 5, \H 4}
+;; => "NBBBCNCCNBBNBNBBCHBHHBCHB"
+(->poly-freqs test-data 4)
+;; => {\N 11, \B 23, \C 10, \H 5}
+;; => "NBBNBNBBCCNBCNCCNBBNBBNBBBNBBNBBCBHCBHHNHCBBCBHCB"
+(->poly-freqs test-data 5)
+;; => {\N 23, \B 46, \C 15, \H 13}
+
+(->poly-freqs test-data 10)
+;; => {\B 1749, \C 298, \H 161, \N 865}
+
+(defn result [freqs]
+  (- (apply max (map second freqs))
+     (apply min (map second freqs))))
+
+(result
+ (->poly-freqs test-data 10))
+;; => 1588
+
+(result
+ (->poly-freqs test-data 40))
+;; => 2188189693529
+
+(result
+ (->poly-freqs day14-data 10))
+;; => 3587
+(result
+ (->poly-freqs day14-data 40))
+;; => 3906445077999
