@@ -1043,3 +1043,131 @@
   (println "=============================")
   (count paths))
 ;; => 148962
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 13
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day13-file (io/resource "day13.txt"))
+
+(def day13-data
+(->infrared-manual
+(line-seq (io/reader day13-file))))
+
+(def test-data
+  (->infrared-manual
+   ["6,10"
+    "0,14"
+    "9,10"
+    "0,3"
+    "10,4"
+    "4,11"
+    "6,0"
+    "6,12"
+    "4,1"
+    "0,13"
+    "10,12"
+    "3,4"
+    "3,0"
+    "8,4"
+    "1,10"
+    "2,14"
+    "8,10"
+    "9,0"
+    ""
+    "fold along y=7"
+    "fold along x=5"]))
+
+(defn ->positions [lines]
+  (set
+   (map
+    #(mapv
+      (fn [l]
+        (Integer/parseInt l))
+      (clojure.string/split % #","))
+    lines)))
+
+(defn ->instructions [lines]
+  (map
+   (fn [l]
+     (let [[_ direction index] (re-find #"^fold along (.)=(\d+)$" l)]
+       [(keyword direction) (Integer/parseInt index)]))
+   lines))
+
+(defn ->infrared-manual [lines]
+  (let [[pos-lines _ instruction-lines] (partition-by empty? lines)]
+    {:positions (->positions pos-lines)
+     :instructions (->instructions instruction-lines)}))
+
+(->infrared-manual test-data)
+
+(defn ->size [positions]
+  [(inc (apply max (map first positions)))
+   (inc (apply max (map second positions)))])
+
+(defn positions->string [positions]
+  (let [[w h] (->size positions)]
+    (clojure.string/join
+     "\n"
+     (map
+      (fn [y]
+        (clojure.string/join
+         (map
+          (fn [x]
+            (if (positions [x y]) "X" " "))
+          (range w))))
+      (range h)))))
+
+(do
+  (println "=======================")
+  (println (positions->string (:positions test-data))))
+
+(do
+(println "=======================")
+(println (positions->string (:positions day13-data))))
+
+(defn fold-coord [coord index]
+  (if (< index coord) (- (* index 2) coord) coord))
+
+(defn fold [[direction index] positions]
+  (set
+   (map
+    (fn [[x y]]
+      (case direction
+        :x [(fold-coord x index) y]
+        :y [x (fold-coord y index)]))
+    positions)))
+
+(let [ps (->> (:positions test-data)
+              (fold [:y 7]))]
+  (println "=======================")
+  (println (positions->string ps)))
+
+(let [ps (->> (:positions test-data)
+              (fold [:y 7])
+              (fold [:x 5]))]
+  (println "=======================")
+  (println (positions->string ps)))
+
+(count
+ (fold (first (:instructions test-data)) (:positions test-data)))
+;; => 17
+
+(count
+ (fold (first (:instructions day13-data)) (:positions day13-data)))
+;; => 671
+
+(defn ->code [{:keys [positions instructions]}]
+  (reduce
+   (fn [res inst]
+     (fold inst res))
+   positions
+   instructions))
+
+(let [ps (->code test-data)]
+  (println "=======================")
+  (println (positions->string ps)))
+
+(let [ps (->code day13-data)]
+  (println "=======================")
+  (println (positions->string ps)))
