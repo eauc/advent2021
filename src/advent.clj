@@ -1390,3 +1390,194 @@
 (do (println "============")
     (path new-day15-data 3000))
 ;; => [250000 2825]
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 16
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day16-file (io/resource "day16.txt"))
+
+(def day16-data
+  (->bits
+   (first
+    (line-seq (io/reader day16-file)))))
+
+(defn ->bits [s]
+  (clojure.string/join
+   (map
+    (fn [c]
+      (let [n (Integer/parseInt c 16)
+            s (Integer/toString n 2)]
+        (str
+         (apply str (repeat (- 4 (count s)) "0"))
+         s)))
+    (clojure.string/split s #""))))
+
+(->bits "0D1")
+
+(def test-packet1
+  "110100101111111000101000")
+
+(defn align-bits [p-length]
+  (if (= p-length (* 8 (quot p-length 8)))
+    0
+    (- 8 (rem p-length 8))))
+
+(align-bits 21)
+;; => 3
+
+(defn ->literal-value-packet [pck cont]
+  ;; (println :value)
+  (loop [s cont
+         v ""
+         l (:p-length pck)]
+    (let [new-v (str v (subs s 1 5))
+          new-l (+ 5 l)
+          new-s (subs s 5)]
+      (if (= \0 (first s))
+        [(assoc pck
+                :value (BigInteger. new-v 2)
+                :p-length new-l)
+         new-s]
+        (recur new-s new-v new-l)))))
+
+(defn ->operator-bit-length-packet [pck' cont']
+  (let [bit-length (Integer/parseInt (subs cont' 0 15) 2)
+        ;; _ (println :bit bit-length)
+        [subs cont] (loop [n-bit-left bit-length
+                           ps []
+                           c' (subs cont' 15)]
+                      (if (>= 0 n-bit-left)
+                        [ps c']
+                        (let [[p c] (->sub-packet c')]
+                          (recur (- n-bit-left (:p-length p))
+                                 (conj ps p)
+                                 c))))]
+    [(-> pck'
+         (update :p-length + 15 bit-length)
+         (assoc :subs subs :sub-bit-length bit-length))
+     cont]))
+
+(defn ->operator-sub-count-packet [pck' cont']
+  (let [sub-count (Integer/parseInt (subs cont' 0 11) 2)
+        ;; _ (println :count sub-count)
+        [subs cont] (reduce
+                     (fn [[ps c'] _]
+                       (let [[p c] (->sub-packet c')]
+                         [(conj ps p) c]))
+                     [[] (subs cont' 11)]
+                     (range sub-count))
+        subs-length (reduce + 0 (map :p-length subs))]
+    [(-> pck'
+         (update :p-length + 11 subs-length)
+         (assoc :subs subs :sub-count sub-count))
+     cont]))
+
+(defn ->operator-packet [pck' cont']
+  (let [length-type-id (first cont')
+        pck (-> pck'
+                (update :p-length + 1)
+                (assoc :length-type-id length-type-id))
+        cont (subs cont' 1)]
+    ;; (println :op length-type-id)
+    (case length-type-id
+      \0 (->operator-bit-length-packet pck cont)
+      \1 (->operator-sub-count-packet pck cont))))
+
+(defn ->sub-packet [s]
+  (let [version (Integer/parseInt (subs s 0 3) 2)
+        type-id (Integer/parseInt (subs s 3 6) 2)
+        pck {:version version
+             :type-id type-id
+             :p-length 6}
+        cont (subs s 6)]
+    ;; (println :sub version type-id (count s))
+    (case type-id
+      4 (->literal-value-packet pck cont)
+      (->operator-packet pck cont))))
+
+(defn ->packet [s]
+  (let [[pck cont] (->sub-packet s)
+        align (align-bits (:p-length pck))]
+    [(update pck :p-length + align)
+     (subs cont align)]))
+
+(->packet test-packet1)
+;; => [{:version 6, :type-id 4, :p-length 24, :value 2021} ""]
+
+(defn ->version-sum [{:keys [subs version]}]
+  (if-not subs
+    version
+    (+ version (reduce + 0 (map ->version-sum subs)))))
+
+(def test-packet-2
+  (->bits "38006F45291200"))
+(def test-packet-3
+  (->bits "EE00D40C823060"))
+
+(->packet test-packet-2)
+;; => [{:version 1, :type-id 6, :p-length 56, :length-type-id \0, :subs [{:version 6, :type-id 4, :p-length 11, :value 10} {:version 2, :type-id 4, :p-length 16, :value 20}], :sub-bit-length 27} ""]
+(->packet test-packet-3)
+;; => [{:version 7, :type-id 3, :p-length 56, :length-type-id \1, :subs [{:version 2, :type-id 4, :p-length 11, :value 1} {:version 4, :type-id 4, :p-length 11, :value 2} {:version 1, :type-id 4, :p-length 11, :value 3}], :sub-count 3} ""]
+
+(->version-sum
+ (first
+  (->packet (->bits "8A004A801A8002F478"))))
+;; => 16
+;; => [{:version 4, :type-id 2, :p-length 72, :length-type-id \1, :subs [{:version 1, :type-id 2, :p-length 51, :length-type-id \1, :subs [{:version 5, :type-id 2, :p-length 33, :length-type-id \0, :subs [{:version 6, :type-id 4, :p-length 11, :value 15}], :sub-bit-length 11}], :sub-count 1}], :sub-count 1} ""]
+(->version-sum
+ (first
+  (->packet (->bits "620080001611562C8802118E34"))))
+;; => 12
+;; => [{:version 3, :type-id 0, :p-length 104, :length-type-id \1, :subs [{:version 0, :type-id 0, :p-length 44, :length-type-id \0, :subs [{:version 0, :type-id 4, :p-length 11, :value 10} {:version 5, :type-id 4, :p-length 11, :value 11}], :sub-bit-length 22} {:version 1, :type-id 0, :p-length 40, :length-type-id \1, :subs [{:version 0, :type-id 4, :p-length 11, :value 12} {:version 3, :type-id 4, :p-length 11, :value 13}], :sub-count 2}], :sub-count 2} ""]
+(->version-sum
+ (first
+  (->packet (->bits "C0015000016115A2E0802F182340"))))
+;; => 23
+;; => [{:version 6, :type-id 0, :p-length 112, :length-type-id \0, :subs [{:version 0, :type-id 0, :p-length 44, :length-type-id \0, :subs [{:version 0, :type-id 4, :p-length 11, :value 10} {:version 6, :type-id 4, :p-length 11, :value 11}], :sub-bit-length 22} {:version 4, :type-id 0, :p-length 40, :length-type-id \1, :subs [{:version 7, :type-id 4, :p-length 11, :value 12} {:version 0, :type-id 4, :p-length 11, :value 13}], :sub-count 2}], :sub-bit-length 84} ""]
+(->version-sum
+ (first
+  (->packet (->bits "A0016C880162017C3686B18A3D4780"))))
+;; => 31
+;; => [{:version 5, :type-id 0, :p-length 120, :length-type-id \0, :subs [{:version 1, :type-id 0, :p-length 91, :length-type-id \1, :subs [{:version 3, :type-id 0, :p-length 73, :length-type-id \1, :subs [{:version 7, :type-id 4, :p-length 11, :value 6} {:version 6, :type-id 4, :p-length 11, :value 6} {:version 5, :type-id 4, :p-length 11, :value 12} {:version 2, :type-id 4, :p-length 11, :value 15} {:version 2, :type-id 4, :p-length 11, :value 15}], :sub-count 5}], :sub-count 1}], :sub-bit-length 91} ""]
+
+(second
+ (->packet day16-data))
+;; => ""
+(->version-sum
+ (first
+  (->packet day16-data)))
+;; => 974
+
+(defn ->packet-value [{:keys [type-id subs value]}]
+  (case type-id
+    0 (reduce + (map ->packet-value subs))
+    1 (reduce * (map ->packet-value subs))
+    2 (apply min (map ->packet-value subs))
+    3 (apply max (map ->packet-value subs))
+    4 value
+    5 (if (apply > (map ->packet-value subs)) 1 0)
+    6 (if (apply < (map ->packet-value subs)) 1 0)
+    7 (if (apply = (map ->packet-value subs)) 1 0)
+    0))
+
+(->packet-value (first (->packet (->bits "C200B40A82"))))
+;; => 3N
+(->packet-value (first (->packet (->bits "04005AC33890"))))
+;; => 54N
+(->packet-value (first (->packet (->bits "880086C3E88112"))))
+;; => 7
+(->packet-value (first (->packet (->bits "CE00C43D881120"))))
+;; => 9
+(->packet-value (first (->packet (->bits "F600BC2D8F"))))
+;; => 0
+(->packet-value (first (->packet (->bits "D8005AC2A8F0"))))
+;; => 1
+(->packet-value (first (->packet (->bits "9C005AC2F8F0"))))
+;; => 0
+(->packet-value (first (->packet (->bits "9C0141080250320F1802104A08"))))
+;; => 1
+
+(->packet-value (first (->packet day16-data)))
+;; => 180616437720N
