@@ -1273,3 +1273,120 @@
 (result
  (->poly-freqs day14-data 40))
 ;; => 3906445077999
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 15
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def day15-file (io/resource "day15.txt"))
+
+(def day15-data
+  (->chitons-map
+   (line-seq (io/reader day15-file))))
+
+(def test-data
+  (->chitons-map
+   ["1163751742"
+    "1381373672"
+    "2136511328"
+    "3694931569"
+    "7463417111"
+    "1319128137"
+    "1359912421"
+    "3125421639"
+    "1293138521"
+    "2311944581"]))
+
+(defn ->chitons-map [lines]
+   (map
+    (fn [l]
+      (map
+       #(Integer/parseInt %)
+       (clojure.string/split l #"")))
+    lines))
+
+(defn get-at [m [x y]]
+  (nth (nth m y) x))
+
+(defn neighbour-costs [[p c] m]
+  (let [ns (neighbours p (size m))]
+    (map (fn [p] [p (+ c (get-at m p))]) ns)))
+
+(defn map->str [m f]
+  (clojure.string/join
+   "\n"
+   (map-indexed
+    (fn on-line [y line]
+      (clojure.string/join
+       (map-indexed
+        (fn on-col [x r]
+          (or (f [x y]) "."))
+        line)))
+    m)))
+
+(defn update-costs [costs pcs]
+  (reduce
+   (fn [mem [p c]]
+     (update mem p (fnil #(min % c) 1000000)))
+   costs
+   pcs))
+
+(defn path [m n-cycles]
+  (let [[w h] (size m)
+        dest [(dec w) (dec h)]]
+    (loop [costs {[0 0] 0}
+           unresolved {[0 0] 0}
+           n n-cycles]
+      (if (get unresolved dest)
+        [(count costs) (get unresolved dest)]
+        (if (>= 0 n)
+          (do (println "==============================")
+              (println (map->str m #(when (get unresolved %) "X")))
+              [(count costs) (get unresolved dest)])
+          (let [min-cost (apply min (vals unresolved))
+                to-resolve (filter #(= min-cost (second %)) unresolved)
+                ns (mapcat #(neighbour-costs % m) to-resolve)
+                new-costs (update-costs costs ns)
+                new-unresolved (into
+                                (reduce #(dissoc %1 (first %2)) unresolved to-resolve)
+                                (filter (fn [[p c]] (< c (get costs p 1000000))) ns))]
+            (recur new-costs new-unresolved (dec n))))))))
+
+
+(do (println "============")
+    (path test-data 40))
+;; => 40
+
+
+(do (println "============")
+    (path day15-data 500))
+;; => 447
+
+(defn unfold-map [m]
+  (let [first (map
+               (fn [line]
+                  (mapcat
+                   (fn [i] (map #(inc (mod (dec (+ i %)) 9)) line))
+                   (range 5)))
+               m)]
+    (mapcat
+     (fn [i]
+       (map
+        (fn [line]
+          (map #(inc (mod (dec (+ i %)) 9)) line))
+        first))
+     (range 5))))
+
+(def new-test-data
+  (unfold-map test-data))
+
+(do (println "============")
+    (path new-test-data 350))
+;; => [2500 315]
+
+(def new-day15-data
+  (unfold-map day15-data))
+
+(do (println "============")
+    (path new-day15-data 3000))
+;; => [250000 2825]
