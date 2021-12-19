@@ -1581,3 +1581,92 @@
 
 (->packet-value (first (->packet day16-data)))
 ;; => 180616437720N
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DAY 17
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def test-target
+  [[20 30] [-10 -5]])
+
+(defn in-target [[x y] [[min-x max-x] [min-y max-y]]]
+  (and (<= min-x x max-x)
+       (<= min-y y max-y)))
+
+(in-target [10 5] test-target) ;; => false
+(in-target [25 -4] test-target) ;; => false
+(in-target [20 -5] test-target) ;; => true
+
+(defn past-target [[x y] [[min-x max-x] [min-y max-y]]]
+  (or (< max-x x)
+       (< y min-y)))
+
+(past-target [30 -10] test-target) ;; => false
+(past-target [30 -11] test-target) ;; => true
+(past-target [31 -10] test-target) ;; => true
+
+(defn dv [[vx vy]]
+  [(max 0 (dec vx))
+   (dec vy)])
+
+(dv [10 10]);; => [9 9]
+(dv [1 1]) ;; => [0 0]
+(dv [0 0]) ;; => [0 -1]
+(dv [0 -1]) ;; => [0 -2]
+
+(defn dp [[x y] [vx vy]]
+  [(+ x vx) (+ y vy)])
+
+(dp [0 0] [6 9]);; => [6 9]
+(dp [9 0] [0 -9]) ;; => [9 -9]
+
+(defn traj
+  ([v]
+   (traj [0 0] v))
+  ([p v]
+   (lazy-seq (cons p (traj (dp p v) (dv v))))))
+
+(take 10 (traj [6 9]))
+;; => ([0 0] [6 9] [11 17] [15 24] [18 30] [20 35] [21 39] [21 42] [21 44] [21 45])
+
+(defn hit-target? [v target]
+  (in-target
+   (first
+    (drop-while
+     (fn [[x y :as p]]
+       (and
+        (not (in-target p target))
+        (not (past-target p target))))
+     (traj v)))
+   target))
+
+(hit-target? [6 9] test-target);; => true
+(hit-target? [6 8] test-target) ;; => true
+(hit-target? [16 8] test-target) ;; => false
+
+(defn v-range [[[min-x max-x] [min-y max-y]]]
+  (for [vx (range 1 (inc max-x))
+        vy (range min-y (- min-y))]
+    [vx vy]))
+
+(count
+ (v-range test-target));; => 600
+
+(count
+ (filter
+  #(hit-target? % test-target)
+  (v-range test-target)))
+;; => 112
+
+(def day17-target
+  [[153 199] [-114 -75]])
+
+(count
+ (v-range day17-target))
+;; => 45372
+
+(count
+ (filter
+  #(hit-target? % day17-target)
+  (v-range day17-target)))
+;; => 3186
